@@ -1,0 +1,14 @@
+schema: 1
+name: cliproxyapi
+variables:
+  API_KEY: {}
+  MANAGEMENT_KEY: {}
+  PORT: {default: "8317"}
+apps:
+  - id: cliproxyapi
+    app: apps/cliproxyapi
+    variables:
+      API_KEY: "{{ API_KEY }}"
+      MANAGEMENT_KEY: "{{ MANAGEMENT_KEY }}"
+      PORT: "{{ PORT }}"
+

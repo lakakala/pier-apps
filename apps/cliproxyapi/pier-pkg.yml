@@ -1,0 +1,35 @@
+schema: 2
+name: cliproxyapi
+version: "8.0.15"
+
+variables:
+  API_KEY: {}
+  MANAGEMENT_KEY: {}
+  PORT: {default: "8317"}
+
+proxy:
+  enabled: false
+
+source:
+  type: binary
+  url: "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.15/CLIProxyAPI_8.0.15_linux_{{ 'amd64' if PIER_ARCH == 'amd64' else 'aarch64' }}.tar.gz"
+  format: tar.gz
+  sha256: "{{ '3acca2d978ba140b4b664bcfb74acea8f6c9a32c24fa6e2d58130f6c1128d3a8' if PIER_ARCH == 'amd64' else '172f1f71dc0381538c09f44a65c687b55035c61ff63f505a6b7edd4fc7b69c95' }}"
+
+files:
+  - from: cli-proxy-api
+    to: bin/cli-proxy-api
+    executable: true
+  - base: recipe
+    from: scripts/start.sh
+    to: bin/start.sh
+    executable: true
+  - from: LICENSE
+    to: share/cliproxyapi/LICENSE
+  - from: config.example.yaml
+    to: share/cliproxyapi/config.example.yaml
+
+service:
+  command: [bin/start.sh]
+  working_dir: .
+
