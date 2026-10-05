@@ -1,5 +1,5 @@
 use minijinja::{Environment, UndefinedBehavior};
-use pier_pkg::{Architecture, PackOptions, inspect, pack, unpack, validate};
+use pier_pkg::{Architecture, PackOptions, ProxyOptions, Stage, inspect, pack, unpack, validate};
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, env, fs, path::Path};
 
@@ -12,6 +12,16 @@ fn variables() -> BTreeMap<String, String> {
         ),
         ("PORT".into(), "18317".into()),
     ])
+}
+
+fn test_proxy() -> ProxyOptions {
+    // Validation does not connect to the placeholder proxy. Package tests serve
+    // the official archive locally and explicitly bypass it via no_proxy.
+    ProxyOptions {
+        http_proxy: Some("http://127.0.0.1:9".into()),
+        https_proxy: Some("http://127.0.0.1:9".into()),
+        no_proxy: Some("127.0.0.1,localhost".into()),
+    }
 }
 
 fn environment() -> Environment<'static> {
@@ -36,6 +46,11 @@ fn check(root: &Path) -> Value {
     for architecture in [Architecture::Amd64, Architecture::Arm64] {
         let mut options = PackOptions::new(architecture);
         options.variables = variables();
+        assert!(matches!(
+            validate(&recipe_dir, &options).unwrap_err().stage,
+            Stage::Proxy
+        ));
+        options.proxy = test_proxy();
         validate(&recipe_dir, &options).unwrap();
 
         for key in ["API_KEY", "MANAGEMENT_KEY"] {
@@ -107,6 +122,7 @@ fn check(root: &Path) -> Value {
         }
     }
     let mut options = PackOptions::new(Architecture::Amd64);
+    options.proxy = test_proxy();
     for (key, mapping) in app["variables"].as_object().unwrap() {
         options.variables.insert(
             key.clone(),
@@ -129,7 +145,7 @@ fn package(root: &Path, arch: &str, base_url: &str, output: &Path) -> Value {
         .unwrap();
     let filename = original_url.rsplit('/').next().unwrap();
     // Serve the unchanged, checksum-pinned official bytes from a local cache.
-    // No production recipe is modified and no proxy is enabled for this test.
+    // Keep the production proxy switch; test_proxy() bypasses the local server.
     recipe["source"]["url"] = json!(format!("{base_url}/{filename}"));
     fs::write(
         temp.path().join("pier-pkg.yml"),
@@ -144,6 +160,7 @@ fn package(root: &Path, arch: &str, base_url: &str, output: &Path) -> Value {
     let architecture: Architecture = arch.parse().unwrap();
     let mut options = PackOptions::new(architecture);
     options.variables = variables();
+    options.proxy = test_proxy();
     if env::var_os("PIER_CHECK_NEXT_RELEASE").is_some() {
         options.variables.insert("PORT".into(), "18318".into());
         options

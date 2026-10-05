@@ -8,6 +8,8 @@
 
 在 controller 中同步本仓库，将服务器绑定到 `blueprints/cliproxyapi`，填写变量后手动部署。二进制 app 不传构建镜像，部署 API 的 `images` 可省略。
 
+配方已开启 `proxy.enabled`，打包下载使用 controller 当前生效的 `build_proxy`。请在“仓库同步与构建代理”中配置 `https_proxy`，保存后重启 controller 再部署。GitHub 发布包使用 HTTPS，`http_proxy` 不会替代 `https_proxy`；匹配 `no_proxy` 的地址直连。未提供任何代理地址时，打包预检失败。此设置仅用于 Pier 打包下载，应用运行时仍直连。
+
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `API_KEY` | 必填 | 客户端访问 API 的密钥 |
@@ -56,8 +58,6 @@ data/
 
 在固定的 `apps/cliproxyapi` 目录中更新配方版本、两个架构的下载地址和 SHA-256，同时核对对应版本配置字段。保持 blueprint 路径和实例 ID 不变，以复用已有用户和数据。提交并同步定义仓库后手动部署；Pier 保存历史部署包用于回退。
 
-配方默认直连下载官方发布包。若 controller 下载必须使用代理，可在配方中开启 `proxy.enabled` 并配置 controller 的 `build_proxy`；该设置仅用于 Pier 下载，不配置应用运行时代理。
-
 ## 验证
 
 验证工具使用本机 Pier 源码中的打包库，运行时应用本身仅依赖 Linux 系统工具、glibc 和 CA 证书。
@@ -66,7 +66,7 @@ data/
 python3 tests/check.py --pier-repo ../pier
 ```
 
-默认检查配方、blueprint、变量校验、配置转义及启动脚本的数据生命周期，不下载官方程序。检查工具使用 Python 标准库和 Rust；Cargo 以离线方式复用本机 Pier 依赖缓存。缓存尚未准备时，先在 Pier 源码目录执行 `cargo fetch --locked`。
+默认检查配方、blueprint、变量校验、配置转义及启动脚本的数据生命周期，并确认未提供代理配置时打包预检失败，不下载官方程序。检查工具使用 Python 标准库和 Rust；Cargo 以离线方式复用本机 Pier 依赖缓存。缓存尚未准备时，先在 Pier 源码目录执行 `cargo fetch --locked`。
 
 下载校验官方发布包，并使用 `pier-pkg` 生成、解包两个架构及两组测试配置：
 
@@ -75,7 +75,7 @@ python3 tests/check.py --pier-repo ../pier --release-tests --packages-dir /tmp/c
 python3 tests/matrix.py --packages /tmp/cliproxyapi-test-packages
 ```
 
-输出目录须不存在。发布包保存在 `.cache/releases`；测试包使用固定测试密钥，仅用于验证。测试将校验后的官方归档通过临时本机 HTTP 服务交给打包库，以独立验证直连配方的打包流程；测试下载可使用执行环境的网络代理，不修改正式配方。
+输出目录须不存在。发布包保存在 `.cache/releases`；测试包使用固定测试密钥，仅用于验证。测试将校验后的官方归档通过临时本机 HTTP 服务交给打包库，保留配方的代理开关，并显式传入测试代理配置、通过 `no_proxy` 绕过本机缓存服务。该检查验证打包和解包流程，不依赖外部代理；获取官方归档时可使用执行环境的网络代理，不修改正式配方。
 
 系统矩阵需要 Docker，跨架构还需要管理员预先配置 QEMU/binfmt。脚本复用已有对应架构的 Pier agent 测试镜像；缺少镜像时，通过 `tests/runtime.Dockerfile` 构建最小测试环境。可用 `--targets ubuntu2404/amd64` 缩小范围。
 

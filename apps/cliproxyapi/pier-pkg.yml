@@ -8,7 +8,7 @@ variables:
   PORT: {default: "8317"}
 
 proxy:
-  enabled: false
+  enabled: true
 
 source:
   type: binary
@@ -32,4 +32,3 @@ files:
 service:
   command: [bin/start.sh]
   working_dir: .
-
